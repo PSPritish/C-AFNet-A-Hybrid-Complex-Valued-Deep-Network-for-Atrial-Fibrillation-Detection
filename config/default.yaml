@@ -1,0 +1,31 @@
+default_config:
+  wandb_api_key: ""
+  run_name: "Chunked DataSet"
+  model:
+    architecture: "Testing"
+  training:
+    batch_size: 128
+    learning_rate: 0.001
+    epochs: 30
+    optimizer: "Adam"
+    loss_function: "BinaryCrossEntropy"
+  data:
+    input_shape: [3, 224, 224]
+    data_dir: "/home/prasad/Desktop/dataset/GAF_DATA2"
+    num_classes: 1
+    augmentation: true
+    dataloader:
+      num_workers: 8
+      pin_memory: true
+      drop_last_train: true
+      shuffle_train: true
+      shuffle_val: false
+      shuffle_test: false
+      prefetch_factor: 2
+      persistent_workers: true
+      use_cache: false
+      cache_size: 1000
+  logging:
+    log_dir: "./logs"
+    save_model: true
+    model_save_path: "./saved_models"
