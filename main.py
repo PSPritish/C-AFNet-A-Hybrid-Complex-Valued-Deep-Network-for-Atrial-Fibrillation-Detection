@@ -1,22 +1,17 @@
 import os
-import sched
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 from data.dataloader import get_dataloaders
-from models.grouped_c_af_net import dual_stream_phase_mag_resnet_18
-from models.components.losses import ComplexMagnitudeAndPhaseLoss
-from models.resnet_18 import resnet18
-from models.hybrid_resnet import hybrid_resnet18
-from models.proposed_model import hybrid_resnet_RO_18
+from models.Grouped_C_AFNet import grouped_c_afnet
+from models.ResNet import resnet18
+from models.Inverted_C_AFNet import inverted_c_afnet
+from models.C_ResNet import c_resnet18
 from train import Trainer
-from models.complex_resnet import complex_resnet18
-from torchvision import models
 import yaml
 import time
 import pandas as pd
-import wandb
 
 
 def load_config(config_path=None):
@@ -45,48 +40,36 @@ def main():
     # Create save directory
     os.makedirs(save_dir, exist_ok=True)
 
-    # Create run name
-    run_name = f"{config.get('run_name', 'nill')}_{time.strftime('%Y%m%d_%H%M%S')}"
+    # Get model config
+    model_config = config.get("model", {})
+    model_arch = model_config.get("architecture", "resnet18")
+    input_channels = config.get("data", {}).get("input_channels", 3)
+    num_classes = config.get("data", {}).get("num_classes", 1)
 
-    # Initialize wandb with the FULL config from YAML
-    wandb.login(key=config.get("wandb_api_key", ""))
-    wandb.init(
-        entity="CVNN_Based_Networks",
-        project=config.get("model", {}).get("architecture", "AF_Detection"),
-        name=run_name,
-        config=config,
-        settings={"console": "wrap"},  # Modern way to capture terminal output
-    )
+    # Get data loaders
+    dataset_type = config.get("data", {}).get("dataset_type", "combined")
+    dataloaders = get_dataloaders(dataset_type=dataset_type)
 
-    # dataset_classes = {
-    #     "combined": CombinedDataset,
-    #     "gasf": GASFDataset,
-    #     "gadf": GADFDataset,
-    #     "complex": ComplexDataset,
-    # }
+    # Create model based on architecture config
+    model_registry = {
+        "resnet18": lambda: resnet18(input_channels=input_channels, num_classes=num_classes),
+        "c_resnet18": lambda: c_resnet18(input_channels=input_channels, num_classes=num_classes),
+        "inverted_c_afnet": lambda: inverted_c_afnet(input_channels=input_channels, num_classes=num_classes),
+        "grouped_c_afnet": lambda: grouped_c_afnet(input_channels=input_channels, num_classes=num_classes),
+    }
 
-    # Get data loaders (complex data for complex model)
-    dataloaders = get_dataloaders(dataset_type="combined")
+    if model_arch not in model_registry:
+        raise ValueError(f"Unknown model architecture: {model_arch}. Available: {list(model_registry.keys())}")
 
-    # Create model directly
-    # model = complex_resnet18(config)
-    model = resnet18()
-    # model = DualResNet(config["data"]["num_classes"])
-    # model = DualResNetCF(config["data"]["num_classes"])
-    # model = hybrid_resnet18()
-    # model = hybrid_resnet_RO_18()
-    # model = dual_stream_phase_mag_resnet_18()
+    model = model_registry[model_arch]()
+    print(f"Created model: {model_arch}")
+
     if torch.cuda.device_count() > 1:
         print(f"Using {torch.cuda.device_count()} GPUs!")
         model = nn.DataParallel(model)
 
-    # model = torch.compile(model)  # Compile the model for better performance doesn't work with complex
-    # Log model architecture to wandb
-    wandb.watch(model, log="all")
-
-    # Set up simple loss function and optimizer
+    # Set up loss function and optimizer
     criterion = nn.BCEWithLogitsLoss()
-    # criterion = ComplexMagnitudeAndPhaseLoss()
 
     # Convert learning_rate to float if it's a string
     learning_rate = float(config.get("training", {}).get("learning_rate", 0.001))
@@ -102,7 +85,6 @@ def main():
     )
 
     # Set up trainer
-    config["use_wandb"] = True
     trainer = Trainer(
         model=model,
         dataloaders=dataloaders,
@@ -126,23 +108,13 @@ def main():
     history_df.to_csv(history_file, index=False)
     print(f"Training history saved to {history_file}")
 
-    # Log final metrics to wandb
-    best_epoch_idx = history_df["val_loss"].idxmin()
+    # Print best metrics
+    best_epoch_idx = int(history_df["val_loss"].idxmin())
     best_metrics = history_df.iloc[best_epoch_idx]
-    wandb.log(
-        {
-            "best_val_loss": best_metrics["val_loss"],
-            "best_val_acc": best_metrics["val_acc"],
-            "best_f1": best_metrics["f1"],
-            "best_epoch": best_metrics["Epoch"],
-        }
-    )
-
-    # Finish wandb run
-    wandb.finish()
-
-
-torch.autograd.set_detect_anomaly(True)  # Enable anomaly detection
+    print(f"\nBest Results (Epoch {int(best_metrics['Epoch'])}):")
+    print(f"  Val Loss: {best_metrics['val_loss']:.4f}")
+    print(f"  Val Acc: {best_metrics['val_acc']:.4f}")
+    print(f"  F1: {best_metrics['f1']:.4f}")
 
 if __name__ == "__main__":
     main()

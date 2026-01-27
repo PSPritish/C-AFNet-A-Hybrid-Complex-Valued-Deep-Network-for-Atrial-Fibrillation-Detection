@@ -8,7 +8,7 @@ import yaml
 
 
 class CombinedDataset(Dataset):
-    def __init__(self, mode, transforms=None, config_path=None):
+    def __init__(self, mode=None, transforms=None, config_path=None):
         """
         Args:
             mode: 'train', 'test', or 'val'
@@ -20,10 +20,13 @@ class CombinedDataset(Dataset):
 
         # Get data directory from config
         data_dir = self.config.get("data", {}).get("data_dir", "/path/to/default/data")
-
-        self.mode = mode.lower()
-        self.gasf_dir = os.path.join(data_dir, "GASFC_train_test_val", self.mode)
-        self.gadf_dir = os.path.join(data_dir, "GADFC_train_test_val", self.mode)
+        if mode is None:
+            self.gasf_dir = os.path.join(data_dir, "GASF")
+            self.gadf_dir = os.path.join(data_dir, "GADF")
+        else:
+            self.mode = mode.lower()
+            self.gasf_dir = os.path.join(data_dir, "GASF", self.mode)
+            self.gadf_dir = os.path.join(data_dir, "GADF", self.mode)
         self.classes = ["normal", "paroxysmal"]
         self.transforms = transforms
         self.class_to_idx = {"label0": 0, "label1": 1}
@@ -85,37 +88,6 @@ class CombinedDataset(Dataset):
             config = yaml.safe_load(file)
 
         return config["default_config"]
-
-    # The rest of your methods remain the same
-    # def _compute_stats(self, image_paths, transform):
-    #     means, stds = [], []
-    #     for img_path in image_paths:
-    #         try:
-    #             # Replace Image.open with read_image
-    #             img = read_image(img_path)
-
-    #             # Convert to float (0-1 range)
-    #             img = img.float() / 255.0
-
-    #             if transform:
-    #                 img_tensor = transform(img)
-    #             else:
-    #                 img_tensor = img  # Already a tensor, no need for ToTensor
-
-    #             means.append(img_tensor.mean(dim=(1, 2)).cpu().numpy())
-    #             stds.append(img_tensor.std(dim=(1, 2)).cpu().numpy())
-    #         except Exception as e:
-    #             print(f"Warning: Failed to compute stats for {img_path}: {str(e)}")
-    #             continue
-
-    #     if not means:
-    #         print(
-    #             "Warning: No valid images for stats computation, using default mean/std"
-    #         )
-    #         return np.array([0.5, 0.5, 0.5]), np.array([0.5, 0.5, 0.5])
-
-    #     return np.mean(means, axis=0), np.mean(stds, axis=0)
-
     def __len__(self):
         return len(self.data)
 
@@ -149,7 +121,7 @@ class CombinedDataset(Dataset):
 
 
 class GASFDataset(Dataset):
-    def __init__(self, mode, transforms=None, config_path=None):
+    def __init__(self, mode=None, transforms=None, config_path=None):
         """
         Args:
             mode: 'train', 'test', or 'val'
@@ -162,9 +134,13 @@ class GASFDataset(Dataset):
         # Get data directory from config
         data_dir = self.config.get("data", {}).get("data_dir", "/path/to/default/data")
 
-        self.mode = mode.lower()
-        self.gasf_dir = os.path.join(data_dir, "GASFC_train_test_val", self.mode)
-        self.gadf_dir = os.path.join(data_dir, "GADFC_train_test_val", self.mode)
+        if mode is None:
+            self.gasf_dir = os.path.join(data_dir, "GASF")
+            self.gadf_dir = os.path.join(data_dir, "GADF")
+        else:
+            self.mode = mode.lower()
+            self.gasf_dir = os.path.join(data_dir, "GASF", self.mode)
+            self.gadf_dir = os.path.join(data_dir, "GADF", self.mode)
         self.classes = ["normal", "paroxysmal"]
         self.transforms = transforms
         self.class_to_idx = {"label0": 0, "label1": 1}
@@ -202,15 +178,6 @@ class GASFDataset(Dataset):
                 else:
                     cnt[1] += 1
                 self.data.append((gadf_image_path, gasf_image_path, label))
-
-        # Compute stats safely
-        # self.gasf_mean, self.gasf_std = self._compute_stats(
-        #     [s[1] for s in self.data], transforms
-        # )
-        # self.gadf_mean, self.gadf_std = self._compute_stats(
-        #     [s[0] for s in self.data], transforms
-        # )
-
         self.pos_weight = cnt[0] / cnt[1]
 
     def _load_config(self, config_path=None):
@@ -226,37 +193,6 @@ class GASFDataset(Dataset):
             config = yaml.safe_load(file)
 
         return config["default_config"]
-
-    # The rest of your methods remain the same
-    # def _compute_stats(self, image_paths, transform):
-    #     means, stds = [], []
-    #     for img_path in image_paths:
-    #         try:
-    #             # Replace Image.open with read_image
-    #             img = read_image(img_path)
-
-    #             # Convert to float (0-1 range)
-    #             img = img.float() / 255.0
-
-    #             if transform:
-    #                 img_tensor = transform(img)
-    #             else:
-    #                 img_tensor = img  # Already a tensor, no need for ToTensor
-
-    #             means.append(img_tensor.mean(dim=(1, 2)).cpu().numpy())
-    #             stds.append(img_tensor.std(dim=(1, 2)).cpu().numpy())
-    #         except Exception as e:
-    #             print(f"Warning: Failed to compute stats for {img_path}: {str(e)}")
-    #             continue
-
-    #     if not means:
-    #         print(
-    #             "Warning: No valid images for stats computation, using default mean/std"
-    #         )
-    #         return np.array([0.5, 0.5, 0.5]), np.array([0.5, 0.5, 0.5])
-
-    #     return np.mean(means, axis=0), np.mean(stds, axis=0)
-
     def __len__(self):
         return len(self.data)
 
@@ -289,7 +225,7 @@ class GASFDataset(Dataset):
 
 
 class GADFDataset(Dataset):
-    def __init__(self, mode, transforms=None, config_path=None):
+    def __init__(self, mode=None, transforms=None, config_path=None):
         """
         Args:
             mode: 'train', 'test', or 'val'
@@ -302,9 +238,13 @@ class GADFDataset(Dataset):
         # Get data directory from config
         data_dir = self.config.get("data", {}).get("data_dir", "/path/to/default/data")
 
-        self.mode = mode.lower()
-        self.gasf_dir = os.path.join(data_dir, "GASFC_train_test_val", self.mode)
-        self.gadf_dir = os.path.join(data_dir, "GADFC_train_test_val", self.mode)
+        if mode is None:
+            self.gasf_dir = os.path.join(data_dir, "GASF")
+            self.gadf_dir = os.path.join(data_dir, "GADF")
+        else:
+            self.mode = mode.lower()
+            self.gasf_dir = os.path.join(data_dir, "GASF", self.mode)
+            self.gadf_dir = os.path.join(data_dir, "GADF", self.mode)
         self.classes = ["normal", "paroxysmal"]
         self.transforms = transforms
         self.class_to_idx = {"label0": 0, "label1": 1}
@@ -366,36 +306,6 @@ class GADFDataset(Dataset):
             config = yaml.safe_load(file)
 
         return config["default_config"]
-
-    # The rest of your methods remain the same
-    # def _compute_stats(self, image_paths, transform):
-    #     means, stds = [], []
-    #     for img_path in image_paths:
-    #         try:
-    #             # Replace Image.open with read_image
-    #             img = read_image(img_path)
-
-    #             # Convert to float (0-1 range)
-    #             img = img.float() / 255.0
-
-    #             if transform:
-    #                 img_tensor = transform(img)
-    #             else:
-    #                 img_tensor = img  # Already a tensor, no need for ToTensor
-
-    #             means.append(img_tensor.mean(dim=(1, 2)).cpu().numpy())
-    #             stds.append(img_tensor.std(dim=(1, 2)).cpu().numpy())
-    #         except Exception as e:
-    #             print(f"Warning: Failed to compute stats for {img_path}: {str(e)}")
-    #             continue
-
-    #     if not means:
-    #         print(
-    #             "Warning: No valid images for stats computation, using default mean/std"
-    #         )
-    #         return np.array([0.5, 0.5, 0.5]), np.array([0.5, 0.5, 0.5])
-
-    #     return np.mean(means, axis=0), np.mean(stds, axis=0)
 
     def __len__(self):
         return len(self.data)
@@ -429,7 +339,7 @@ class GADFDataset(Dataset):
 
 
 class ComplexDataset(Dataset):
-    def __init__(self, mode, transforms=None, config_path=None):
+    def __init__(self, mode=None, transforms=None, config_path=None):
         """
         Args:
             mode: 'train', 'test', or 'val'
@@ -442,9 +352,13 @@ class ComplexDataset(Dataset):
         # Get data directory from config
         data_dir = self.config.get("data", {}).get("data_dir", "/path/to/default/data")
 
-        self.mode = mode.lower()
-        self.gasf_dir = os.path.join(data_dir, "GASFC_train_test_val", self.mode)
-        self.gadf_dir = os.path.join(data_dir, "GADFC_train_test_val", self.mode)
+        if mode is None:
+            self.gasf_dir = os.path.join(data_dir, "GASF")
+            self.gadf_dir = os.path.join(data_dir, "GADF")
+        else:
+            self.mode = mode.lower()
+            self.gasf_dir = os.path.join(data_dir, "GASF", self.mode)
+            self.gadf_dir = os.path.join(data_dir, "GADF", self.mode)
         self.classes = ["normal", "paroxysmal"]
         self.transforms = transforms
         self.class_to_idx = {"label0": 0, "label1": 1}
@@ -506,36 +420,6 @@ class ComplexDataset(Dataset):
             config = yaml.safe_load(file)
 
         return config["default_config"]
-
-    # The rest of your methods remain the same
-    # def _compute_stats(self, image_paths, transform):
-    #     means, stds = [], []
-    #     for img_path in image_paths:
-    #         try:
-    #             # Replace Image.open with read_image
-    #             img = read_image(img_path)
-
-    #             # Convert to float (0-1 range)
-    #             img = img.float() / 255.0
-
-    #             if transform:
-    #                 img_tensor = transform(img)
-    #             else:
-    #                 img_tensor = img  # Already a tensor, no need for ToTensor
-
-    #             means.append(img_tensor.mean(dim=(1, 2)).cpu().numpy())
-    #             stds.append(img_tensor.std(dim=(1, 2)).cpu().numpy())
-    #         except Exception as e:
-    #             print(f"Warning: Failed to compute stats for {img_path}: {str(e)}")
-    #             continue
-
-    #     if not means:
-    #         print(
-    #             "Warning: No valid images for stats computation, using default mean/std"
-    #         )
-    #         return np.array([0.5, 0.5, 0.5]), np.array([0.5, 0.5, 0.5])
-
-    #     return np.mean(means, axis=0), np.mean(stds, axis=0)
 
     def __len__(self):
         return len(self.data)

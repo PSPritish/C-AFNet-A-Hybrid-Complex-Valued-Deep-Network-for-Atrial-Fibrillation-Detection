@@ -3,7 +3,6 @@ from tqdm import tqdm
 import os
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
-import wandb
 
 
 class Trainer:
@@ -19,7 +18,6 @@ class Trainer:
         self.scheduler = scheduler
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
-        self.use_wandb = config.get("use_wandb", False)
         self.model_name = config.get("model", {}).get("architecture", "model")
 
     def train(self):
@@ -140,76 +138,37 @@ class Trainer:
             history["f1"].append(f1)
             history["confusion_matrices"].append(cm)
 
-            # Log metrics to wandb
-            if self.use_wandb:
-                # Create confusion matrix figure for wandb
-                import matplotlib.pyplot as plt
-                import seaborn as sns
-
-                fig, ax = plt.figure(figsize=(8, 6)), plt.subplot(111)
-                sns.heatmap(
-                    cm,
-                    annot=True,
-                    fmt="d",
-                    ax=ax,
-                    cmap="Blues",
-                    xticklabels=["Normal", "AF"],
-                    yticklabels=["Normal", "AF"],
-                )
-                plt.xlabel("Predicted")
-                plt.ylabel("True")
-
-                # Log metrics and confusion matrix
-                wandb.log(
-                    {
-                        "epoch": epoch + 1,
-                        "train_loss": train_loss,
-                        "val_loss": val_loss,
-                        "train_acc": train_acc,
-                        "val_acc": val_acc,
-                        "precision": precision,
-                        "recall": recall,
-                        "f1": f1,
-                        "confusion_matrix": wandb.Image(fig),
-                        "learning_rate": self.optimizer.param_groups[0]["lr"],
-                    }
-                )
-                plt.close(fig)
+            # Print epoch summary
+            print(f"Epoch {epoch + 1}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}, "
+                  f"val_acc={val_acc:.4f}, f1={f1:.4f}")
 
             # Save best model
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
-                # Log best model to wandb
-                if self.use_wandb:
-                    save_path = self.config.get("logging", {}).get(
-                        "model_save_path", "./saved_models"
-                    )
-                    model_path = os.path.join(
-                        save_path, f"{self.model_name}_model_epoch_{epoch+1}.pth"
-                    )
-                    # wandb.save(model_path) # to save models online
-            self.save_model(epoch)
-            print(f"✓ Model saved (val_loss: {val_loss:.4f})")
+                self.save_model(epoch)
+                print(f"✓ Best model saved (val_loss: {val_loss:.4f})")
 
             # Step the scheduler based on validation loss
             if self.scheduler is not None:
                 self.scheduler.step(val_loss)
-                current_lr = self.optimizer.param_groups[0]["lr"]
-                print(f"Current learning rate: {current_lr}")
-                wandb.log({"learning_rate": current_lr})
+                print(f"Learning rate: {self.optimizer.param_groups[0]['lr']}")
 
             print()
 
         # Return the training history
         return history
 
-    def save_model(self, epoch=None):
+    def save_model(self, epoch: int = 0):
         """Save model to disk"""
         save_path = self.config.get("logging", {}).get(
             "model_save_path", "./saved_models"
         )
         os.makedirs(save_path, exist_ok=True)
         model_path = os.path.join(
-            save_path, f"{self.model_name}_model_epoch_{epoch+1}.pth"
+            save_path, f"{self.model_name}_model_epoch_{epoch + 1}.pth"
         )
-        torch.save(self.model.module.state_dict(), model_path)
+        # Handle both DataParallel and single GPU/CPU cases
+        if isinstance(self.model, torch.nn.DataParallel):
+            torch.save(self.model.module.state_dict(), model_path)
+        else:
+            torch.save(self.model.state_dict(), model_path)

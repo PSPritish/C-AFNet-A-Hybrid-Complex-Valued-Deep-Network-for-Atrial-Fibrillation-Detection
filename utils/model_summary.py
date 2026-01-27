@@ -184,7 +184,7 @@ def model_summary(
 def test_model_summary(model_name="complex_resnet18"):
     """Test the model summary utility with different models"""
     from models.resnet import AFResNet
-    from models.complex_resnet import complex_resnet18, complex_resnet34
+    from models.C import complex_resnet18, complex_resnet34
     from data.dataloader import load_config
 
     config = load_config()

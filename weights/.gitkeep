@@ -1,0 +1,8 @@
+# Place your pretrained model weights here
+# Expected files:
+# - ResNet18.pth
+# - C_ResNet18.pth
+# - Inverted_C_AFNet.pth
+# - Grouped_C_AFNet.pth
+# - C_AFNet.pth
+# - R_AFNet.pth

@@ -1,13 +1,9 @@
-from ast import mod
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
-import torchvision
-from torchvision.io import read_image
 from tqdm import tqdm
 import yaml
 import gc
@@ -22,18 +18,15 @@ from sklearn.metrics import (
     precision_recall_curve,
     average_precision_score,
 )
-import torchvision.transforms as T
 import csv
 from datetime import datetime
 
 from data.dataset import ComplexDataset, GASFDataset, GADFDataset, CombinedDataset
 from data.transforms import get_transforms
-from data.dataloader import get_dataloaders
-from models.resnet_18 import resnet18
-from models.complex_resnet import complex_resnet18
-from models.grouped_c_af_net import dual_stream_phase_mag_resnet_18
-from models.hybrid_resnet import hybrid_resnet18
-from models.proposed_model import hybrid_resnet_RO_18
+from models.ResNet import resnet18
+from models.C_ResNet import c_resnet18
+from models.Grouped_C_AFNet import grouped_c_afnet
+from models.Inverted_C_AFNet import inverted_c_afnet
 
 
 def load_config(config_path=None):
@@ -191,54 +184,6 @@ def plot_pr_curve(metrics):
     plt.show()
 
 
-# def print_summary(metrics, model_type, dataset_type):
-#     """Print summary of model performance"""
-#     print("\n=== Model Performance Summary ===\n")
-#     print(f"Model: {model_type}")
-#     print(f"Dataset: {dataset_type}")
-#     print(f"\nTest Accuracy: {metrics['accuracy']:.4f}")
-#     print(f"F1 Score: {metrics['f1']:.4f}")
-#     print(f"ROC AUC: {metrics['roc_auc']:.4f}")
-#     print(f"PR AUC: {metrics['pr_auc']:.4f}")
-#     print("\nClinical Metrics:")
-#     print(f"Sensitivity (Recall): {metrics['recall']:.4f}")
-#     print(f"Specificity: {metrics['specificity']:.4f}")
-#     print(f"Precision: {metrics['precision']:.4f}")
-#     print(f"Negative Predictive Value: {metrics['npv']:.4f}")
-
-#     # Calculate error rates
-#     fp = metrics["confusion_matrix"][0, 1]
-#     fn = metrics["confusion_matrix"][1, 0]
-#     total = np.sum(metrics["confusion_matrix"])
-#     print(f"\nFalse Positive Rate: {fp/total:.4f}")
-#     print(f"False Negative Rate: {fn/total:.4f}")
-
-#     print("\n=== Conclusion ===\n")
-#     if metrics["f1"] > 0.9:
-#         print("The model performs excellently on the test set.")
-#     elif metrics["f1"] > 0.8:
-#         print("The model performs well on the test set.")
-#     elif metrics["f1"] > 0.7:
-#         print("The model performs adequately on the test set.")
-#     else:
-#         print("The model performance needs improvement.")
-
-#     # Suggestions based on metrics
-#     print("\nSuggestions:")
-#     if metrics["recall"] < 0.8:
-#         print(
-#             "- Consider techniques to improve recall/sensitivity to detect more AF cases."
-#         )
-#     if metrics["precision"] < 0.8:
-#         print("- Work on reducing false positives to improve precision.")
-#     if metrics["roc_auc"] < 0.85:
-#         print("- The model's discriminative ability could be improved.")
-#     if metrics["accuracy"] > 0.85 and metrics["f1"] < 0.8:
-#         print(
-#             "- The dataset might be imbalanced. Consider balanced accuracy or F1 as your primary metric."
-#         )
-
-
 def save_metrics_to_csv(
     metrics, model_type, dataset_type, model_path, output_path=None
 ):
@@ -319,32 +264,37 @@ def main():
         return
 
     try:
-        # Update model path to your best model
-        model_name = "resnet18_gasf"
-        # model_path = "ExplanableAi/Resnet18_GADF_model_epoch_22.pth"
-        # model_path = "ExplanableAi/Complex_Resnet18_GASF_iGADF_model_epoch_29.pth"
-        # model_path = "ExplanableAi/Complex_Resnet18_GADF_iGADF_model_epoch_28.pth"
-        # model_path = "ExplanableAi/best_model_epoch_27.pth"
-        # model_path = "ExplanableAi/HybridResNet18_GASF_iGADF_model_epoch_29.pth"
-        # model_path = "ExplanableAi/HybridResNet18RO_GASF_iGADF_model_epoch_26.pth"
-        # model_path = "ExplanableAi/DualStream_model_epoch_30.pth"
-        # model_path = "saved_models_new/resnet18_gasf/resnet18_gasf_model_epoch_24.pth"
+        # Get config for model settings
+        input_channels = config.get("data", {}).get("input_channels", 3)
+        num_classes = config.get("data", {}).get("num_classes", 1)
+
+        # Model registry for easy selection
+        model_registry = {
+            "resnet18": lambda: resnet18(input_channels=input_channels, num_classes=num_classes),
+            "c_resnet18": lambda: c_resnet18(input_channels=input_channels, num_classes=num_classes),
+            "inverted_c_afnet": lambda: inverted_c_afnet(input_channels=input_channels, num_classes=num_classes),
+            "grouped_c_afnet": lambda: grouped_c_afnet(input_channels=input_channels, num_classes=num_classes),
+        }
+
+        # Select model and path (update these as needed)
+        model_name = "resnet18"
         model_path = "saved_models_new/resnet18_gasf_gadf/resnet18_gasf_gadf_model_epoch_18.pth"
-        model = resnet18(input_channels=6)
-        # model = complex_resnet18(config)
-        # model = hybrid_resnet18()
-        # model = hybrid_resnet_RO_18()
-        # model = dual_stream_phase_mag_resnet_18()
+
+        if model_name not in model_registry:
+            raise ValueError(f"Unknown model: {model_name}. Available: {list(model_registry.keys())}")
+
+        model = model_registry[model_name]()
         state = torch.load(
             model_path,
             map_location=device,
         )
+        # Handle DataParallel saved models
         state = {k[7:] if k.startswith("module.") else k: v for k, v in state.items()}
 
         model.load_state_dict(state)
         model = model.to(device)
         model.eval()
-        # print(f"Model loaded: {model}")
+        print(f"Model loaded: {model_name} from {model_path}")
     except Exception as e:
         print(f"Error loading model: {e}")
         return

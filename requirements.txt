@@ -1,0 +1,30 @@
+# --- Core Deep Learning ---
+torch>=2.0.0
+torchvision
+torchaudio
+torchinfo
+ptflops
+
+# --- ECG & Signal Processing ---
+wfdb
+biosppy
+PeakUtils
+PyWavelets
+
+# --- Data Handling ---
+numpy
+pandas
+scipy
+scikit-learn
+scikit-image
+PyYAML
+
+# --- Visualization & XAI ---
+matplotlib
+seaborn
+captum
+shap
+lime
+
+# --- Utilities ---
+tqdm
