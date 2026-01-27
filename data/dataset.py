@@ -116,7 +116,7 @@ class CombinedDataset(Dataset):
             mean=[0.25332475, 0.17397244, 0.43626496],
             std=[0.03306787, 0.08601908, 0.04909801],
         )
-        modified_image = torch.cat((gasf_image, gadf_image), dim=0)
+        modified_image = torch.cat((gadf_image, gasf_image), dim=0)
         return modified_image, label
 
 

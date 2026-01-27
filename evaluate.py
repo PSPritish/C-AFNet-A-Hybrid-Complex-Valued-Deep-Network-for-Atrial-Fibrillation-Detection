@@ -115,7 +115,7 @@ CLASS_NAMES = ["Normal", "AF"]
 # Complex models use 'complex' dataset (3 channels), real models use 'gadf' dataset (3 channels)
 MODEL_DATASET_MAP = {
     "resnet18": "gadf",
-    "r_afnet": "complex",
+    "r_afnet": "combined",
     "c_resnet18": "complex",
     "c_afnet": "complex",
     "inverted_c_afnet": "complex",
