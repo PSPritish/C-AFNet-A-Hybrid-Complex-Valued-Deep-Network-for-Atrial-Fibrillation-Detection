@@ -32,7 +32,7 @@ Official implementation of **Complex-AFNet**, a hybrid complex-valued deep neura
 
 ```bash
 # Clone repository
-git clone https://github.com/YOUR_USERNAME/Complex-AFNet.git
+git clone https://github.com/PSPritish/C-AFNet-A-Hybrid-Complex-Valued-Deep-Network-for-Atrial-Fibrillation-Detection.git
 cd Complex-AFNet
 
 # Create virtual environment (recommended)
